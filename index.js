@@ -26,35 +26,25 @@ aventones.use(cors({
 
 //Controllers Imports
 const { riderPost, getRiderCredentials } = require('./controller/riderController');
+const { userPost } = require('./controller/userController');
 const { driverPost, getDriverCredentials } = require('./controller/driverController');
 const { bookingGet } = require('./controller/bookingController');
 const { googleAuth } = require('./controller/authController');
 
 
 //Allows registration of a new rider and driver
+aventones.post('/user', userPost);
 aventones.post('/rider', riderPost);
 aventones.post('/driver', driverPost);
 aventones.get('/booking', bookingGet);
 
-
-aventones.post('/auth/google', googleAuth);
 //Allows authentication of a rider and driver
 aventones.post("/auth", async function (req, res, next) {
     let type = req.body.type;
     if (req.body.email && req.body.password && type) {
         try {
             let user;
-            switch (type) {
-                case 'rider':
-                    user = await getRiderCredentials(req.body.email);
-                    break;
-                case 'driver':
-                    user = await getDriverCredentials(req.body.email);
-                    break;
-                default:
-                    res.status(401).json({ error: `Invalid credentials for ${type}` });
-                    return;
-            }
+            user = await getRiderCredentials(req.body.email);
             if (!user) {
                 res.status(401).json({ error: `Invalid credentials for ${type}` });
                 return;
