@@ -26,7 +26,7 @@ aventones.use(cors({
 
 //Controllers Imports
 const { riderPost, getRiderCredentials } = require('./controller/riderController');
-const { userPost } = require('./controller/userController');
+const { userPost, getUserCredentials } = require('./controller/userController');
 const { driverPost, getDriverCredentials } = require('./controller/driverController');
 const { bookingGet } = require('./controller/bookingController');
 const { googleAuth } = require('./controller/authController');
@@ -40,31 +40,30 @@ aventones.get('/booking', bookingGet);
 
 //Allows authentication of a rider and driver
 aventones.post("/auth", async function (req, res, next) {
-    let type = req.body.type;
-    if (req.body.email && req.body.password && type) {
+    if (req.body.email && req.body.password) {
         try {
             let user;
-            user = await getRiderCredentials(req.body.email);
+            user = await getUserCredentials(req.body.email);
             if (!user) {
-                res.status(401).json({ error: `Invalid credentials for ${type}` });
+                res.status(401).json({ error: `Invalid credentials for ${user.isDriver}` });
                 return;
             }
             const validPassword = await bcrypt.compare(req.body.password, user.password);
             if (!validPassword) {
-                res.status(401).json({ error: `Invalid credentials for ${type}` });
+                res.status(401).json({ error: `Invalid credentials for ${user.isDriver}` });
                 return;
             }
 
             const payload = {
                 userId: user._id,
-                role: type,
+                isDriver: user.isDriver,
                 agent: req.get('user-agent')
             };
             const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 86400 });
 
             res.status(201).json({ token });
         } catch (error) {
-            res.status(500).json({ error: 'Internal server error' });
+            res.status(500).json({ error: 'Internal server error' , error});
         }
     } else {
         next();

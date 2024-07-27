@@ -10,14 +10,14 @@ const userGet = async (req, res) => {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
     let user;
-    if (decoded.role === 'rider') {
-        user = await Rider.findById(decoded.userId).select('-password');
-    } else if (decoded.role === 'driver') {
-        user = await Driver.findById(decoded.userId).select('-password');
+    if (!decoded.isDriver) {
+        user = await User.findById(decoded.userId).select('-password');
+    } else if (decoded.isDriver) {
+        user = await User.findById(decoded.userId).select('-password');
     }
 
     if (user) {
-        res.status(200).json({ ...user._doc, role: decoded.role == 'driver' ? 'Driver' : 'Rider' });
+        res.status(200).json({ ...user._doc, isDriver: decoded.isDriver ? 'Driver' : 'Rider' });
     } else {
         res.status(404);
     }
@@ -68,21 +68,14 @@ const userPost = async (req, res) => {
     }
 }
 
-getUserCredentials = async (email) => {
-    const user = await User.findOne({ email });
-    return user;
+const getUserCredentials = async function (email) {
+    return User.findOne({ email: email});
 };
 
 const userPatch = async (req, res) => {
     const token = req.headers['authorization'].split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    let user;
-    if (decoded.role === 'rider') {
-        user = await Rider.findByIdAndUpdate(decoded.userId, req.body, { new: true });
-    } else if (decoded.role === 'driver') {
-        user = await Driver.findByIdAndUpdate(decoded.userId, req.body, { new: true });
-    }
+    const user = await User.findByIdAndUpdate(decoded.userId, req.body, { new: true });
 
     if (user) {
         res.status(200).json({ "message": "User updated successfully" });
