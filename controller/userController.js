@@ -1,31 +1,12 @@
 const jwt = require('jsonwebtoken');
-const Rider = require('../models/riderModel');
-const Driver = require('../models/driverModel');
 const User = require('../models/userModel');
+const Vehicle = require('../models/vehicleModel');
 const bcrypt = require('bcrypt');
 const saltRounds = 10;
 
-const userGet = async (req, res) => {
-    const token = req.headers['authorization'].split(' ')[1];
-    const decoded = jwt.verify(token, process.env.JWT_SECRET);
-
-    let user;
-    if (!decoded.isDriver) {
-        user = await User.findById(decoded.userId).select('-password');
-    } else if (decoded.isDriver) {
-        user = await User.findById(decoded.userId).select('-password');
-    }
-
-    if (user) {
-        res.status(200).json({ ...user._doc, isDriver: decoded.isDriver ? 'Driver' : 'Rider' });
-    } else {
-        res.status(404);
-    }
-};
-
 const userPost = async (req, res) => {
     let user = new User();
-
+    let vehicle = new Vehicle();
     user.firstName = req.body.firstName;
     user.lastName = req.body.lastName;
     user.cedula = req.body.cedula;
@@ -33,6 +14,25 @@ const userPost = async (req, res) => {
     user.email = req.body.email;
     user.phone = req.body.phone;
     user.isDriver = req.body.isDriver;
+
+    if (user.isDriver) {
+        vehicle.model = req.body.model;
+        vehicle.year = req.body.year;
+        vehicle.plate = req.body.plate;
+        vehicle.make = req.body.make;
+        vehicle.seats = req.body.seats;
+        vehicle.save().then(() => {
+            user.vehicle = vehicle._id;
+        }
+        ).catch((err) => {
+            res.status(400).json({ error: 'Vehicle not created' });
+            console.log(err);
+        });
+        user.vehicle = vehicle._id;
+    }
+    console.log(user._id);
+    console.log(vehicle._id);
+    console.log(user.vehicle);
 
     if (user.firstName && user.lastName && user.cedula && user.dob &&
         user.email && user.phone && req.body.password && user.isDriver != null) {
@@ -58,7 +58,7 @@ const userPost = async (req, res) => {
                     res.header({
                         'Content-Type': 'application/json'
                     })
-                    res.status(400).json({ error: 'Rider not created' });
+                    res.status(400).json({ error: 'User not created' });
                     console.log(err);
                 });
             });
@@ -69,7 +69,7 @@ const userPost = async (req, res) => {
 }
 
 const getUserCredentials = async function (email) {
-    return User.findOne({ email: email});
+    return User.findOne({ email: email }).select('password _id isDriver');
 };
 
 const userPatch = async (req, res) => {
@@ -78,7 +78,7 @@ const userPatch = async (req, res) => {
     const user = await User.findByIdAndUpdate(decoded.userId, req.body, { new: true });
 
     if (user) {
-        res.status(200).json({ "message": "User updated successfully" });
+        res.status(200).json(user);
     } else {
         res.status(404)
     }
@@ -88,12 +88,7 @@ const userDelete = async (req, res) => {
     const token = req.headers['authorization'].split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    let user;
-    if (decoded.role === 'rider') {
-        user = await Rider.findByIdAndDelete(decoded.userId);
-    } else if (decoded.role === 'driver') {
-        user = await Driver.findByIdAndDelete(decoded.userId);
-    }
+    let user = await User.findByIdAndDelete(decoded.userId);
 
     if (user) {
         res.status(200);
@@ -103,7 +98,6 @@ const userDelete = async (req, res) => {
 };
 
 module.exports = {
-    userGet,
     getUserCredentials,
     userDelete,
     userPatch,

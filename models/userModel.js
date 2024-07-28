@@ -10,8 +10,9 @@ const UserSchema = new mongoose.Schema({
     password: String,
     profilePicture: String,
     isDriver: Boolean,
+    vehicle: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle' }
 });
 
-const UserModel = mongoose.model('users', UserSchema);
+const UserModel = mongoose.model('User', UserSchema);
 
 module.exports = UserModel;

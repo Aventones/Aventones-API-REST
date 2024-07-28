@@ -25,35 +25,23 @@ aventones.use(cors({
 }));
 
 //Controllers Imports
-const { riderPost, getRiderCredentials } = require('./controller/riderController');
 const { userPost, getUserCredentials } = require('./controller/userController');
-const { driverPost, getDriverCredentials } = require('./controller/driverController');
-const { bookingGet } = require('./controller/bookingController');
-const { googleAuth } = require('./controller/authController');
 
-
-//Allows registration of a new rider and driver
+//Allows registration of a new user
 aventones.post('/user', userPost);
-aventones.post('/rider', riderPost);
-aventones.post('/driver', driverPost);
-aventones.get('/booking', bookingGet);
 
-//Allows authentication of a rider and driver
+//Allows authentication of a user
 aventones.post("/auth", async function (req, res, next) {
     if (req.body.email && req.body.password) {
         try {
-            let user;
-            user = await getUserCredentials(req.body.email);
+            let user = await getUserCredentials(req.body.email);
             if (!user) {
-                res.status(401).json({ error: `Invalid credentials for ${user.isDriver}` });
-                return;
+                res.status(401).json({ error: `Check your email` });
             }
             const validPassword = await bcrypt.compare(req.body.password, user.password);
             if (!validPassword) {
-                res.status(401).json({ error: `Invalid credentials for ${user.isDriver}` });
-                return;
+                res.status(401).json({ error: `Check your password` });
             }
-
             const payload = {
                 userId: user._id,
                 isDriver: user.isDriver,
@@ -63,7 +51,7 @@ aventones.post("/auth", async function (req, res, next) {
 
             res.status(201).json({ token });
         } catch (error) {
-            res.status(500).json({ error: 'Internal server error' , error});
+            res.status(500).json({ error: 'Internal server error', error });
         }
     } else {
         next();
