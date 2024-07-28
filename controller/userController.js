@@ -1,4 +1,6 @@
+require('dotenv').config();
 const jwt = require('jsonwebtoken');
+const imgbbUploader = require("imgbb-uploader");
 const User = require('../models/userModel');
 const Vehicle = require('../models/vehicleModel');
 const bcrypt = require('bcrypt');
@@ -73,12 +75,26 @@ const getUserCredentials = async function (email) {
 };
 
 const userPatch = async (req, res) => {
+    let user = new User();
+    user = req.body;
+    const options = {
+        apiKey: process.env.IMGBB_KEY,
+        base64string: req.body.profilePicture.split(',')[1]
+    };
+    await imgbbUploader(options).then((response) => {
+        user.profilePicture = response.image.url;
+    }
+    ).catch((err) => {
+        res.status(400).json({ error: 'Profile picture not uploaded' });
+        console.log(err);
+    });
+
     const token = req.headers['authorization'].split(' ')[1];
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findByIdAndUpdate(decoded.userId, req.body, { new: true });
+    const updatedUser = await User.findByIdAndUpdate(decoded.userId, user, { new: true });
 
-    if (user) {
-        res.status(200).json(user);
+    if (updatedUser) {
+        res.status(200).json(updatedUser);
     } else {
         res.status(404)
     }

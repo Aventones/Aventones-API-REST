@@ -17,7 +17,7 @@ mongoose.connect(databaseURL);
 const db = mongoose.connection;
 const aventones = express();
 
-aventones.use(bodyParser.json({ limit: '2mb' }));
+aventones.use(bodyParser.json({ limit: '3mb' }));
 aventones.use(cookieParser());
 aventones.use(cors({
     methods: 'GET,POST,DELETE,PATCH',
