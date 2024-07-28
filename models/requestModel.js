@@ -1,10 +1,11 @@
 const mongoose = require('mongoose');
-const schema = mongoose.Schema;
 
-const request = new schema({
-    rider: { type: mongoose.Schema.Types.ObjectId, ref: 'riders' },
-    bookingDriver: { type: mongoose.Schema.Types.ObjectId, ref: 'drivers' },
-    booking: { type: mongoose.Schema.Types.ObjectId, ref: 'bookings' },
+const RequestSchema = new mongoose.Schema({
+    rider: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    rideDriver: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+    ride : { type: mongoose.Schema.Types.ObjectId, ref: 'Ride' },
 });
 
-module.exports = mongoose.model('requests', request);
+const RequestModel = mongoose.model('Request', RequestSchema);
+
+module.exports = RequestModel;

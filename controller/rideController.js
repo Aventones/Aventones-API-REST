@@ -57,7 +57,6 @@ const rideDelete = async (req, res) => {
 
 const ridePatch = async (req, res) => {
     let ride = req.body;
-
     Ride.findByIdAndUpdate(req.query.id, ride, { new: true }).then((updatedRide) => {
         res.header({
             'Content-Type': 'application/json',
