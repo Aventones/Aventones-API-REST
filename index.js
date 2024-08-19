@@ -1,6 +1,4 @@
 require('dotenv').config();
-const databaseURL = process.env.DATABASE_URL;
-const JWT_SECRET = process.env.JWT_SECRET;
 const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
@@ -8,15 +6,23 @@ const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
 const cookieParser = require('cookie-parser');
 const bcrypt = require('bcrypt');
+const session = require('express-session');
+const passport = require('passport');
+const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const routes = require('./routes/routes');
+const User = require('./models/userModel'); // Assuming you have a User model
 const router = express.Router();
 module.exports = router;
+
+const databaseURL = process.env.DATABASE_URL;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 mongoose.connect(databaseURL);
 
 const db = mongoose.connection;
 const aventones = express();
 
+// Middleware Setup
 aventones.use(bodyParser.json({ limit: '3mb' }));
 aventones.use(cookieParser());
 aventones.use(cors({
@@ -24,13 +30,71 @@ aventones.use(cors({
     allowedHeaders: ['Content-Type', 'Authorization']
 }));
 
-//Controllers Imports
+// Express session middleware
+aventones.use(session({
+    secret: process.env.SESSION_SECRET, // Ensure this is set in your .env file
+    resave: false,
+    saveUninitialized: false,
+    cookie: { secure: false } // Set secure: true if using HTTPS
+}));
+
+// Initialize Passport and sessions
+aventones.use(passport.initialize());
+aventones.use(passport.session());
+
+// Passport Google OAuth configuration
+passport.use(new GoogleStrategy({
+    clientID: process.env.GOOGLE_CLIENT_ID,
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+    callbackURL: process.env.GOOGLE_CALLBACK_URL
+  },
+  async (accessToken, refreshToken, profile, done) => {
+    try {
+        const user = await User.findOrCreate({ googleId: profile.id }, {
+          firstName: profile.name.givenName,
+          lastName: profile.name.familyName,
+          email: profile.emails[0].value,
+        });
+        return done(null, user);
+    } catch (err) {
+        return done(err, null);
+    }
+  }
+));
+
+passport.serializeUser((user, done) => {
+    done(null, user.id);
+});
+
+passport.deserializeUser(async (id, done) => {
+    try {
+        const user = await User.findById(id);
+        done(null, user);
+    } catch (err) {
+        done(err, null);
+    }
+});
+
+// Google OAuth login route
+aventones.get('/auth/google', passport.authenticate('google', {
+    scope: ['profile', 'email']
+}));
+
+// Google OAuth callback route
+aventones.get('/auth/google/callback', 
+  passport.authenticate('google', { failureRedirect: '/login' }),
+  (req, res) => {
+    res.redirect('/register');
+  }
+);
+
+// Controllers Imports
 const { userPost, getUserCredentials } = require('./controller/userController');
 
-//Allows registration of a new user
+// Allows registration of a new user
 aventones.post('/user', userPost);
 
-//Allows authentication of a user
+// Allows authentication of a user
 aventones.post("/auth", async function (req, res, next) {
     if (req.body.email && req.body.password) {
         try {
@@ -69,7 +133,7 @@ aventones.post("/verifyauth", (req, res) => {
     });
 });
 
-//Middleware to check if the user is authenticated
+// Middleware to check if the user is authenticated
 aventones.use(function (req, res, next) {
     if (req.headers["authorization"]) {
         const authToken = req.headers['authorization'].split(' ')[1];
@@ -98,15 +162,15 @@ aventones.use(function (req, res, next) {
     }
 });
 
-//Routes
+// Routes
 aventones.use(routes);
 
-//Server
+// Server
 aventones.listen(3001, () => {
     console.log('Server on port 3001');
 });
 
-//Database Connection
+// Database Connection
 db.on('error', (error) => {
     console.log(error)
 })
