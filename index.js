@@ -10,7 +10,7 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const routes = require('./routes/routes');
-const User = require('./models/userModel'); // Assuming you have a User model
+const User = require('./models/userModel'); // Ensure this is your User model
 const router = express.Router();
 module.exports = router;
 
@@ -61,7 +61,6 @@ passport.use(new GoogleStrategy({
     }
   }
 ));
-
 passport.serializeUser((user, done) => {
     done(null, user.id);
 });
@@ -84,7 +83,9 @@ aventones.get('/auth/google', passport.authenticate('google', {
 aventones.get('/auth/google/callback', 
   passport.authenticate('google', { failureRedirect: '/login' }),
   (req, res) => {
-    res.redirect('/register');
+    const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET);
+    res.cookie('token', token, { maxAge: 86400, httpOnly: true });
+    res.redirect('/');
   }
 );
 
@@ -173,8 +174,8 @@ aventones.listen(3001, () => {
 // Database Connection
 db.on('error', (error) => {
     console.log(error)
-})
+});
 
 db.once('connected', () => {
     console.log('Database Connected');
-})
+});
