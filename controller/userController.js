@@ -16,6 +16,7 @@ const userPost = async (req, res) => {
     user.email = req.body.email;
     user.phone = req.body.phone;
     user.isDriver = req.body.isDriver;
+    user.status = 'not verified'; // Set status to 'not verified' by default
 
     if (user.isDriver) {
         vehicle.model = req.body.model;
@@ -25,16 +26,11 @@ const userPost = async (req, res) => {
         vehicle.seats = req.body.seats;
         vehicle.save().then(() => {
             user.vehicle = vehicle._id;
-        }
-        ).catch((err) => {
+        }).catch((err) => {
             res.status(400).json({ error: 'Vehicle not created' });
             console.log(err);
         });
-        user.vehicle = vehicle._id;
     }
-    console.log(user._id);
-    console.log(vehicle._id);
-    console.log(user.vehicle);
 
     if (user.firstName && user.lastName && user.cedula && user.dob &&
         user.email && user.phone && req.body.password && user.isDriver != null) {
@@ -54,12 +50,12 @@ const userPost = async (req, res) => {
                     res.header({
                         'Content-Type': 'application/json',
                         'Location': 'http://localhost:3001/user/' + user._id
-                    })
+                    });
                     res.status(201).json(user);
                 }).catch((err) => {
                     res.header({
                         'Content-Type': 'application/json'
-                    })
+                    });
                     res.status(400).json({ error: 'User not created' });
                     console.log(err);
                 });
@@ -71,7 +67,7 @@ const userPost = async (req, res) => {
 }
 
 const getUserCredentials = async function (email) {
-    return User.findOne({ email: email }).select('password _id isDriver');
+    return User.findOne({ email: email }).select('password _id isDriver status');
 };
 
 const userPatch = async (req, res) => {
@@ -83,8 +79,7 @@ const userPatch = async (req, res) => {
     };
     await imgbbUploader(options).then((response) => {
         user.profilePicture = response.image.url;
-    }
-    ).catch((err) => {
+    }).catch((err) => {
         res.status(400).json({ error: 'Profile picture not uploaded' });
         console.log(err);
     });
@@ -96,7 +91,7 @@ const userPatch = async (req, res) => {
     if (updatedUser) {
         res.status(200).json(updatedUser);
     } else {
-        res.status(404)
+        res.status(404).json({ error: 'User not found' });
     }
 };
 
@@ -107,9 +102,9 @@ const userDelete = async (req, res) => {
     let user = await User.findByIdAndDelete(decoded.userId);
 
     if (user) {
-        res.status(200);
+        res.status(200).json({ message: 'User deleted successfully' });
     } else {
-        res.status(404);
+        res.status(404).json({ error: 'User not found' });
     }
 };
 
