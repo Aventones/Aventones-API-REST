@@ -61,6 +61,7 @@ passport.use(new GoogleStrategy({
     }
   }
 ));
+
 passport.serializeUser((user, done) => {
     done(null, user.id);
 });
@@ -101,21 +102,31 @@ aventones.post("/auth", async function (req, res, next) {
         try {
             let user = await getUserCredentials(req.body.email);
             if (!user) {
-                res.status(401).json({ error: `Check your email` });
+                return res.status(401).json({ error: `Check your email` });
             }
+
+            console.log("Fetched User:", user); // Debugging: log the fetched user details
+
             const validPassword = await bcrypt.compare(req.body.password, user.password);
             if (!validPassword) {
-                res.status(401).json({ error: `Check your password` });
+                return res.status(401).json({ error: `Check your password` });
             }
+
+            // Include the status check
+            if (user.status !== 'verified') {
+                return res.status(403).json({ error: 'Account not verified' });
+            }
+
             const payload = {
                 userId: user._id,
                 isDriver: user.isDriver,
                 agent: req.get('user-agent')
             };
-            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 86400 });
+            const token = jwt.sign(payload, JWT_SECRET, { expiresIn: 86400 });
 
-            res.status(201).json({ token });
+            res.status(201).json({ token, status: user.status });
         } catch (error) {
+            console.error("Auth Error:", error); // Log any errors
             res.status(500).json({ error: 'Internal server error', error });
         }
     } else {
@@ -141,25 +152,15 @@ aventones.use(function (req, res, next) {
         try {
             jwt.verify(authToken, JWT_SECRET, (err, decodedToken) => {
                 if (err || !decodedToken) {
-                    res.status(401);
-                    res.json({
-                        error: "Unauthorized"
-                    });
+                    res.status(401).json({ error: "Unauthorized" });
                 }
                 next();
             });
         } catch (e) {
-            res.status(401);
-            res.send({
-                error: "Unauthorized"
-            });
+            res.status(401).json({ error: "Unauthorized" });
         }
-
     } else {
-        res.status(401);
-        res.send({
-            error: "Unauthorized"
-        });
+        res.status(401).json({ error: "Unauthorized" });
     }
 });
 
