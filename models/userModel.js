@@ -1,6 +1,7 @@
 const mongoose = require('mongoose');
 
 const UserSchema = new mongoose.Schema({
+    status: { type: String, default: 'not verified' }, // Default value set to 'not verified'
     firstName: String,
     lastName: String,
     cedula: String,
