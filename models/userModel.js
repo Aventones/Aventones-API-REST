@@ -7,7 +7,7 @@ const UserSchema = new mongoose.Schema({
     cedula: String,
     dob: Date,
     email: String,
-    phone: Number,
+    phone: { type: Number, default: 86145781 }, // Default value set to 86145781
     password: String,
     profilePicture: String,
     isDriver: Boolean,
