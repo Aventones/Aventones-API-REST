@@ -10,9 +10,8 @@ const session = require('express-session');
 const passport = require('passport');
 const GoogleStrategy = require('passport-google-oauth20').Strategy;
 const routes = require('./routes/routes');
-const User = require('./models/userModel'); // Ensure this is your User model
-const router = express.Router();
-module.exports = router;
+const User = require('./models/userModel');
+const { userPost, getUserCredentials, userPatch } = require('./controller/userController');
 
 const databaseURL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
@@ -32,7 +31,7 @@ aventones.use(cors({
 
 // Express session middleware
 aventones.use(session({
-    secret: process.env.SESSION_SECRET, // Ensure this is set in your .env file
+    secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
     cookie: { secure: false } // Set secure: true if using HTTPS
@@ -47,19 +46,19 @@ passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
     callbackURL: process.env.GOOGLE_CALLBACK_URL
-  },
-  async (accessToken, refreshToken, profile, done) => {
-    try {
-        const user = await User.findOrCreate({ googleId: profile.id }, {
-          firstName: profile.name.givenName,
-          lastName: profile.name.familyName,
-          email: profile.emails[0].value,
-        });
-        return done(null, user);
-    } catch (err) {
-        return done(err, null);
+},
+    async (accessToken, refreshToken, profile, done) => {
+        try {
+            const user = await User.findOrCreate({ googleId: profile.id }, {
+                firstName: profile.name.givenName,
+                lastName: profile.name.familyName,
+                email: profile.emails[0].value,
+            });
+            return done(null, user);
+        } catch (err) {
+            return done(err, null);
+        }
     }
-  }
 ));
 
 passport.serializeUser((user, done) => {
@@ -81,17 +80,14 @@ aventones.get('/auth/google', passport.authenticate('google', {
 }));
 
 // Google OAuth callback route
-aventones.get('/auth/google/callback', 
-  passport.authenticate('google', { failureRedirect: '/login' }),
-  (req, res) => {
-    const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET);
-    res.cookie('token', token, { maxAge: 86400, httpOnly: true });
-    res.redirect('/');
-  }
+aventones.get('/auth/google/callback',
+    passport.authenticate('google', { failureRedirect: '/login' }),
+    (req, res) => {
+        const token = jwt.sign({ userId: req.user.id }, process.env.JWT_SECRET);
+        res.cookie('token', token, { maxAge: 86400, httpOnly: true });
+        res.redirect('/');
+    }
 );
-
-// Controllers Imports
-const { userPost, getUserCredentials } = require('./controller/userController');
 
 // Allows registration of a new user
 aventones.post('/user', userPost);
@@ -105,28 +101,22 @@ aventones.post("/auth", async function (req, res, next) {
                 return res.status(401).json({ error: `Check your email` });
             }
 
-            console.log("Fetched User:", user); // Debugging: log the fetched user details
-
             const validPassword = await bcrypt.compare(req.body.password, user.password);
             if (!validPassword) {
                 return res.status(401).json({ error: `Check your password` });
             }
 
-            // Include the status check
-            if (user.status !== 'verified') {
-                return res.status(403).json({ error: 'Account not verified' });
-            }
-
+            // No status check, allow all users to authenticate
             const payload = {
                 userId: user._id,
                 isDriver: user.isDriver,
                 agent: req.get('user-agent')
             };
-            const token = jwt.sign(payload, JWT_SECRET, { expiresIn: 86400 });
+            const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: 86400 });
 
-            res.status(201).json({ token, status: user.status });
+            res.status(201).json({ token });
         } catch (error) {
-            console.error("Auth Error:", error); // Log any errors
+            console.error("Auth Error:", error);
             res.status(500).json({ error: 'Internal server error', error });
         }
     } else {
@@ -163,6 +153,33 @@ aventones.use(function (req, res, next) {
         res.status(401).json({ error: "Unauthorized" });
     }
 });
+
+// New Patch route to update the user's status by ID
+aventones.patch('/user/:id/status', async (req, res) => {
+    try {
+        const userId = req.params.id;
+        const { statusUser } = req.body;
+
+        if (!statusUser) {
+            return res.status(400).json({ error: 'Status is required' });
+        }
+
+        // Find the user by their ID and update the statusUser field
+        const updatedUser = await User.findByIdAndUpdate(userId, { statusUser: statusUser }, { new: true });
+
+        if (!updatedUser) {
+            return res.status(404).json({ error: 'User not found' });
+        }
+
+        res.status(200).json({ message: 'User status updated successfully', updatedUser });
+    } catch (error) {
+        console.error("Error updating user status:", error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
+});
+
+// Serve static files (like favicon)
+aventones.use(express.static('public'));
 
 // Routes
 aventones.use(routes);
