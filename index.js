@@ -13,6 +13,12 @@ const routes = require('./routes/routes');
 const User = require('./models/userModel');
 const { userPost, getUserCredentials, userPatch } = require('./controller/userController');
 
+// Twilio setup
+const accountSid = process.env.TWILIO_ACCOUNT_SID;
+const authToken = process.env.TWILIO_AUTH_TOKEN;
+const client = require('twilio')(accountSid, authToken);
+const verifyServiceSid = process.env.TWILIO_VERIFY_SERVICE_SID;
+
 const databaseURL = process.env.DATABASE_URL;
 const JWT_SECRET = process.env.JWT_SECRET;
 
@@ -177,6 +183,81 @@ aventones.patch('/user/:id/status', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+// Twilio OTP Endpoints
+
+// Endpoint to send OTP
+aventones.post('/send-otp', async (req, res) => {
+    const { phoneNumber } = req.body;
+
+    try {
+        const verification = await client.verify.v2.services(verifyServiceSid)
+            .verifications
+            .create({ to: phoneNumber, channel: 'sms' });
+
+        res.status(200).json({
+            success: true,
+            message: 'OTP sent successfully.',
+            status: verification.status
+        });
+    } catch (error) {
+        console.error('Error sending OTP:', error);
+        res.status(500).json({
+            success: false,
+            message: 'Failed to send OTP.',
+            error: error.message
+        });
+    }
+});
+
+// Endpoint to verify OTP
+aventones.post('/verify-otp', async (req, res) => {
+    const { phoneNumber, code } = req.body;
+
+    if (!code) {
+        return res.status(400).json({ error: 'Missing required parameter: code' });
+    }
+
+    // Verify the JWT token to ensure the request is authenticated
+    const token = req.headers['authorization'] && req.headers['authorization'].split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ error: 'Unauthorized, missing token' });
+    }
+
+    jwt.verify(token, JWT_SECRET, async (err, decoded) => {
+        if (err) {
+            return res.status(401).json({ error: 'Unauthorized, invalid token' });
+        }
+
+        try {
+            const verification_check = await client.verify.v2.services(verifyServiceSid)
+                .verificationChecks
+                .create({ to: phoneNumber, code: code });
+
+            if (verification_check.status === 'approved') {
+                res.status(200).json({
+                    success: true,
+                    message: 'OTP verified successfully.',
+                    status: verification_check.status
+                });
+            } else {
+                res.status(400).json({
+                    success: false,
+                    message: 'Invalid OTP or OTP expired.',
+                    status: verification_check.status
+                });
+            }
+        } catch (error) {
+            console.error('Error verifying OTP:', error);
+            res.status(500).json({
+                success: false,
+                message: 'Failed to verify OTP.',
+                error: error.message
+            });
+        }
+    });
+});
+
 
 // Serve static files (like favicon)
 aventones.use(express.static('public'));
