@@ -27,6 +27,17 @@ mongoose.connect(databaseURL);
 const db = mongoose.connection;
 const aventones = express();
 
+// Define a health check endpoint
+app.use('/health', (req, res) => {
+    res.status(200).send('OK'); // Respond with a status code of 200 and 'OK'
+});
+
+// Start the server on a specific port (e.g., 8080)
+const port = 8080;
+app.listen(port, () => {
+    console.log(`Server is running on port ${port}`);
+});
+
 // Middleware Setup
 aventones.use(bodyParser.json({ limit: '3mb' }));
 aventones.use(cookieParser());
